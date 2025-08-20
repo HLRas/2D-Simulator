@@ -7,8 +7,13 @@ from parking_space import ParkingSpace
 from astar_pathfind import AStarPathfinder
 
 class Map:
-    def __init__(self):
-        """Initialize the map with optimized performance"""
+    def __init__(self, layout_type=0):
+        """Initialize the map with optimized performance
+        
+        Args:
+            layout_type (int): 0=Default with parking, 1=Empty, 2=Minimal
+        """
+        self.layout_type = layout_type
         self.rows = SCREEN_HEIGHT // CUBE_SIZE
         self.cols = SCREEN_WIDTH // CUBE_SIZE
         
@@ -30,7 +35,7 @@ class Map:
         
         # Parking spaces
         self.parking_spaces = []
-        self._create_default_parking_spaces()
+        self._create_layout()
         
         # Neighbors cache for performance
         self.neighbors_updated = False
@@ -56,9 +61,18 @@ class Map:
         for y in range(0, SCREEN_HEIGHT, CUBE_SIZE):
             pygame.draw.line(self.grid_surface, BLACK, (0, y), (SCREEN_WIDTH, y))
 
+    def _create_layout(self):
+        """Create the appropriate layout based on layout_type"""
+        if self.layout_type == 0:
+            self._create_default_parking_spaces()
+        elif self.layout_type == 1:
+            self._create_empty_layout()
+        elif self.layout_type == 2:
+            self._create_minimal_layout()
+
     def _create_default_parking_spaces(self):
-        """Create some default parking spaces"""
-        # Generate 6 horizontal parking spaces on the right side, stacked vertically
+        """Create default layout with parking spaces (Layout 0)"""
+        # Generate 3 horizontal parking spaces on the right side, stacked vertically
         self.parking_spaces = []
         space_height = 5
         num_spaces = 3
@@ -71,6 +85,30 @@ class Map:
         # Apply to grid
         for space in self.parking_spaces:
             space.apply_to_grid(self.cubes)
+    
+    def _create_empty_layout(self):
+        """Create completely empty layout (Layout 1)"""
+        # No parking spaces or obstacles - completely empty
+        self.parking_spaces = []
+    
+    def _create_minimal_layout(self):
+        """Create minimal layout with some basic obstacles (Layout 2)"""
+        self.parking_spaces = []
+        
+        # Add some simple barriers/obstacles for variety
+        # Create a few scattered obstacles
+        obstacles = [
+            (10, 10, 3, 3),  # x, y, width, height
+            (25, 8, 2, 5),
+            (15, 20, 4, 2),
+            (30, 15, 2, 2)
+        ]
+        
+        for obs_x, obs_y, obs_width, obs_height in obstacles:
+            for x in range(obs_x, min(obs_x + obs_width, self.cols)):
+                for y in range(obs_y, min(obs_y + obs_height, self.rows)):
+                    if 0 <= x < self.cols and 0 <= y < self.rows:
+                        self.cubes[y][x].make_barrier()
     def add_parking_space(self, grid_x, grid_y, width=7, height=5, orientation='horizontal'):
         """Add a new parking space"""
         space = ParkingSpace(grid_x, grid_y, width, height, orientation)

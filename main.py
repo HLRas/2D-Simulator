@@ -3,20 +3,32 @@ import sys
 import math
 from car import Car
 from map_generation import Map
+from menu import MainMenu
 from config import *
 
 def main():
-    """Main game loop with improved performance and structure"""
+    """Main application entry point"""
     # Initialize Pygame
     pygame.init()
     pygame.font.init()
     
-    # Create game objects
-    game_map = Map()
+    # Show main menu and get selected layout
+    menu = MainMenu()
+    selected_layout = menu.run()
+    
+    # Start the simulation with the selected layout
+    run_simulation(selected_layout)
+
+def run_simulation(layout_type):
+    """Run the simulation with the specified layout type"""
+    # Create game objects with selected layout
+    game_map = Map(layout_type)
     car = Car(50, 50)
     
     # Set up display
-    pygame.display.set_caption("2D Car Simulation")
+    layout_names = ["Default Layout", "Empty Layout", "Minimal Layout"]
+    caption = f"2D Car Simulation - {layout_names[layout_type]}"
+    pygame.display.set_caption(caption)
     clock = pygame.time.Clock()
     
     # Performance tracking
@@ -34,6 +46,10 @@ def main():
                 sys.exit()
             
             elif event.type == pygame.KEYDOWN:
+                # Return to main menu with ESC key
+                if event.key == pygame.K_ESCAPE:
+                    return main()  # Restart from menu
+                
                 game_map.check_inputs(event, car)
                 
                 # Stop autopilot with SPACE key
@@ -73,10 +89,10 @@ def main():
         game_map.draw()
         car.draw() 
         
-        # Show FPS every second
+        # Show FPS and controls info
         fps = clock.get_fps()
         status = " - AUTO PILOT" if car.following_path else ""
-        pygame.display.set_caption(f"2D Car Simulation - FPS: {fps:.1f}{status}")
+        pygame.display.set_caption(f"{caption} - FPS: {fps:.1f}{status} - ESC: Menu")
         
         pygame.display.flip()
 
