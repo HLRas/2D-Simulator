@@ -56,10 +56,13 @@ class MainMenu:
         # Controls info
         controls_y = start_y + len(self.menu_options) * 60 + 50
         controls_text = [
-            "Controls:",
-            "↑/↓ - Navigate menu",
-            "ENTER - Select option",
-            "ESC - Quit"
+            "Simulation Controls:",
+            "Q - Set start position",
+            "A - Auto-navigate to parking (carrot method)",
+            "S - Auto-navigate to parking (cross-track method)",
+            "C - Clear path",
+            "SPACE - Stop autopilot",
+            "ESC - Return to menu"
         ]
         
         for i, text in enumerate(controls_text):

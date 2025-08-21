@@ -190,6 +190,22 @@ class Map:
                         car.start_path_following(path_points)
                         print("Starting automatic path following to parking space!")
 
+        elif event.key == pygame.K_s and self.start:
+            # Find nearest parking space and pathfind to it using cross-track error method
+            nearest_space = self._find_nearest_parking_space(car)
+            if nearest_space and nearest_space.target_cube:
+                self.end = nearest_space.target_cube
+                self._update_neighbors_if_needed()
+                self.pathfinder.clear_path(self.cubes, self.mark_dirty)
+                path_found = self.pathfinder.pathfind(self.cubes, self.start, self.end, self.mark_dirty)
+                
+                # If path was found, start cross-track error path following
+                if path_found and self.pathfinder.has_path():
+                    path_points = self.pathfinder.get_path_points()
+                    if path_points:
+                        car.start_cross_track_following(path_points)
+                        print("Starting cross-track error path following to parking space!")
+
         elif event.key == pygame.K_c:
             # Clear path and stop path following
             self.pathfinder.clear_path(self.cubes, self.mark_dirty)

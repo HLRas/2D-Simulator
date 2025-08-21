@@ -42,6 +42,12 @@ class Car:
         self.carrot_distance = 25  
         self.arrival_threshold = 18  
         
+        # Cross-track error following
+        self.cross_track_following = False
+        self.cross_track_path = []
+        self.cross_track_index = 0
+        self.lookahead_distance = 30  
+        
     def _create_surface(self):
         """Create the car's visual surface"""
         self.car_surface = pygame.Surface((self.length, self.width), pygame.SRCALPHA)
@@ -222,8 +228,11 @@ class Car:
     def stop_path_following(self):
         """Stop path following and apply brakes"""
         self.following_path = False
+        self.cross_track_following = False
         self.path_points = []
+        self.cross_track_path = []
         self.current_target_index = 0
+        self.cross_track_index = 0
         print("Stopped path following")
     
     def _find_carrot_point(self):
@@ -349,9 +358,13 @@ class Car:
     
     def update_path_following(self, dt):
         """Update path following behavior"""
-        if not self.following_path:
-            return
-            
+        if self.following_path:
+            self._update_carrot_following(dt)
+        elif self.cross_track_following:
+            self._update_cross_track_following(dt)
+    
+    def _update_carrot_following(self, dt):
+        """Update carrot-stick path following"""
         # Update current target based on position
         self._update_target_index()
         
@@ -370,3 +383,168 @@ class Car:
         else:
             # No valid carrot point, stop
             self.stop_path_following()
+    
+    def start_cross_track_following(self, path_points):
+        """Start following a path using cross-track error method"""
+        if len(path_points) < 2:
+            return False
+            
+        self.cross_track_path = path_points[:]  # Copy the path
+        self.cross_track_index = 0
+        self.cross_track_following = True
+        self.following_path = False  # Disable carrot following
+        print(f"Started cross-track error following with {len(path_points)} points")
+        return True
+    
+    def _update_cross_track_following(self, dt):
+        """Update cross-track error path following"""
+        if not self.cross_track_path:
+            return
+            
+        # Find closest point on path
+        closest_point, closest_index = self._find_closest_point_on_path()
+        
+        if closest_point is None:
+            self.stop_path_following()
+            return
+            
+        # Update current index
+        self.cross_track_index = max(self.cross_track_index, closest_index)
+        
+        # Check if reached end
+        if self.cross_track_index >= len(self.cross_track_path) - 1:
+            distance_to_end = math.sqrt(
+                (self.x - self.cross_track_path[-1][0])**2 + 
+                (self.y - self.cross_track_path[-1][1])**2
+            )
+            if distance_to_end < self.arrival_threshold:
+                print("Reached destination! Cross-track error following complete.")
+                self.stop_path_following()
+                return
+        
+        # Find lookahead point
+        lookahead_point = self._find_lookahead_point()
+        
+        if lookahead_point:
+            # Calculate cross-track error
+            cross_track_error = self._calculate_cross_track_error(closest_point)
+            
+            # Calculate steering commands using cross-track error
+            left_cmd, right_cmd = self._calculate_cross_track_steering(lookahead_point, cross_track_error)
+            
+            # Apply commands
+            self._apply_wheel_commands(left_cmd, right_cmd, dt)
+    
+    def _find_closest_point_on_path(self):
+        """Find the closest point on the path to the car"""
+        if not self.cross_track_path:
+            return None, 0
+            
+        car_pos = (self.x, self.y)
+        min_distance = float('inf')
+        closest_point = None
+        closest_index = 0
+        
+        # Start searching from current index to avoid going backwards
+        start_index = max(0, self.cross_track_index - 2)
+        
+        for i in range(start_index, len(self.cross_track_path)):
+            point = self.cross_track_path[i]
+            distance = math.sqrt((point[0] - car_pos[0])**2 + (point[1] - car_pos[1])**2)
+            
+            if distance < min_distance:
+                min_distance = distance
+                closest_point = point
+                closest_index = i
+                
+        return closest_point, closest_index
+    
+    def _find_lookahead_point(self):
+        """Find a point ahead on the path for steering"""
+        if not self.cross_track_path:
+            return None
+            
+        car_pos = (self.x, self.y)
+        
+        # Start from current index and look ahead
+        for i in range(self.cross_track_index, len(self.cross_track_path)):
+            point = self.cross_track_path[i]
+            distance = math.sqrt((point[0] - car_pos[0])**2 + (point[1] - car_pos[1])**2)
+            
+            # If this point is at the desired lookahead distance or beyond
+            if distance >= self.lookahead_distance:
+                return point
+                
+        # If no point is far enough, return the last point
+        return self.cross_track_path[-1]
+    
+    def _calculate_cross_track_error(self, closest_point):
+        """Calculate the cross-track error (perpendicular distance from path)"""
+        if not closest_point or self.cross_track_index >= len(self.cross_track_path) - 1:
+            return 0
+            
+        # Get the path segment
+        current_point = self.cross_track_path[self.cross_track_index]
+        next_point = self.cross_track_path[min(self.cross_track_index + 1, len(self.cross_track_path) - 1)]
+        
+        # Calculate cross-track error using the perpendicular distance to the line segment
+        # Vector from current to next point on path
+        path_dx = next_point[0] - current_point[0]
+        path_dy = next_point[1] - current_point[1]
+        
+        # Vector from current path point to car
+        car_dx = self.x - current_point[0]
+        car_dy = self.y - current_point[1]
+        
+        # Calculate cross product to get signed distance
+        if abs(path_dx) < 1e-6 and abs(path_dy) < 1e-6:
+            return 0  # Path segment too short
+            
+        # Normalize path vector
+        path_length = math.sqrt(path_dx**2 + path_dy**2)
+        path_dx /= path_length
+        path_dy /= path_length
+        
+        # Cross-track error is the perpendicular component
+        cross_track_error = car_dx * (-path_dy) + car_dy * path_dx
+        
+        return cross_track_error
+    
+    def _calculate_cross_track_steering(self, lookahead_point, cross_track_error):
+        """Calculate steering commands using cross-track error and lookahead point"""
+        if not lookahead_point:
+            return 0, 0
+            
+        # PID gains for cross-track error correction
+        kp_cross_track = 0.02  # Proportional gain for cross-track error
+        
+        # Calculate angle to lookahead point (same as carrot method)
+        dx = lookahead_point[0] - self.x
+        dy = lookahead_point[1] - self.y
+        target_angle = math.atan2(-dy, dx)
+        
+        # Calculate angle difference
+        angle_diff = target_angle - self.angle
+        while angle_diff > math.pi:
+            angle_diff -= 2 * math.pi
+        while angle_diff < -math.pi:
+            angle_diff += 2 * math.pi
+        
+        # Combine heading error and cross-track error
+        max_turn_rate = 2.5
+        heading_command = max(-max_turn_rate, min(max_turn_rate, angle_diff * 1.5))
+        cross_track_command = -cross_track_error * kp_cross_track  # Negative to correct towards path
+        
+        total_turn_command = heading_command + cross_track_command
+        total_turn_command = max(-max_turn_rate, min(max_turn_rate, total_turn_command))
+        
+        # Speed control (similar to carrot method but slightly slower for precision)
+        base_speed = 0.4
+        turn_penalty = abs(total_turn_command) * 0.08
+        target_speed = max(0.15, base_speed - turn_penalty)
+        
+        # Calculate differential drive commands
+        left_command = target_speed - total_turn_command * 0.4
+        right_command = target_speed + total_turn_command * 0.4
+        
+        return left_command, right_command

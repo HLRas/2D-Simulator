@@ -53,7 +53,7 @@ def run_simulation(layout_type):
                 game_map.check_inputs(event, car)
                 
                 # Stop autopilot with SPACE key
-                if event.key == pygame.K_SPACE and car.following_path:
+                if event.key == pygame.K_SPACE and (car.following_path or car.cross_track_following):
                     car.stop_path_following()
                     print("Autopilot manually stopped")
                 
@@ -62,7 +62,8 @@ def run_simulation(layout_type):
                     print(f"Car position: ({car.x:.1f}, {car.y:.1f})")
                     print(f"Car angle: {math.degrees(car.angle):.1f}°")
                     print(f"Wheel speeds: L={car.wheel_L:.2f}, R={car.wheel_R:.2f}")
-                    print(f"Following path: {car.following_path}")
+                    print(f"Carrot following: {car.following_path}")
+                    print(f"Cross-track following: {car.cross_track_following}")
         
         # Handle continuous inputs
         keys = pygame.key.get_pressed()
@@ -91,7 +92,12 @@ def run_simulation(layout_type):
         
         # Show FPS and controls info
         fps = clock.get_fps()
-        status = " - AUTO PILOT" if car.following_path else ""
+        if car.following_path:
+            status = " - CARROT FOLLOWING"
+        elif car.cross_track_following:
+            status = " - CROSS-TRACK FOLLOWING"
+        else:
+            status = ""
         pygame.display.set_caption(f"{caption} - FPS: {fps:.1f}{status} - ESC: Menu")
         
         pygame.display.flip()
