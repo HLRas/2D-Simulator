@@ -81,10 +81,12 @@ def run_simulation(layout_type):
         for space in game_map.parking_spaces:
             if space.is_car_in_space(car):
                 if not space.occupied:
-                    space.occupied = True
+                    space.set_occupied(True, game_map.cubes)
                     print(f"Car parked in space!")
             else:
-                space.occupied = False
+                # Only set to unoccupied if it's not permanently occupied
+                if space.occupied and not space.permanently_occupied:
+                    space.set_occupied(False, game_map.cubes)
         
         # Draw everything
         game_map.draw()

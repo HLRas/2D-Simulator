@@ -2,7 +2,7 @@ import pygame
 from config import *
 
 class ParkingSpace:
-    def __init__(self, grid_x, grid_y, width=7, height=5, orientation='horizontal'):
+    def __init__(self, grid_x, grid_y, width=7, height=5, orientation='horizontal', occupied=False, permanently_occupied=False):
         """
         Initialize a parking space
         
@@ -10,13 +10,16 @@ class ParkingSpace:
             grid_x, grid_y: Top-left corner in grid coordinates
             width, height: Size in grid units
             orientation: 'horizontal' or 'vertical'
+            occupied: Whether currently occupied by a car
+            permanently_occupied: Whether permanently blocked (won't be freed when car leaves)
         """
         self.grid_x = grid_x
         self.grid_y = grid_y
         self.width = width
         self.height = height
         self.orientation = orientation
-        self.occupied = False
+        self.occupied = occupied
+        self.permanently_occupied = permanently_occupied
         self.target_cube = None  # The cube cars should navigate to
         
         # Calculate world coordinates
@@ -44,7 +47,7 @@ class ParkingSpace:
             # Create vertical parking space
             for i in range(self.height):
                 for j in range(self.width):
-                    if j == 2:  # Middle column is the gap (entry)
+                    if j in [1,2,3]:  # Middle column is the gap (entry)
                         if i == self.height - 2:  # Target position
                             self.entry_position = (self.grid_x + j, self.grid_y + i)
                         continue
@@ -63,8 +66,97 @@ class ParkingSpace:
         if self.entry_position:
             x, y = self.entry_position
             if 0 <= x < cols and 0 <= y < rows:
-                cubes[y][x].make_end()
+                if self.occupied:
+                    cubes[y][x].make_occupied()  # Red for occupied
+                else:
+                    cubes[y][x].make_end()  # Target color for available
                 self.target_cube = cubes[y][x]
+        
+        # If initially occupied, apply interior barriers
+        if self.occupied:
+            self._make_interior_barriers(cubes)
+
+    def set_occupied(self, occupied, cubes):
+        """Set the occupation status and update the grid accordingly"""
+        if self.occupied == occupied:
+            return  # No change needed
+            
+        self.occupied = occupied
+        rows, cols = len(cubes), len(cubes[0])
+        
+        if occupied:
+            # Make all positions barriers except entry
+            for x, y in self.barrier_positions:
+                if 0 <= x < cols and 0 <= y < rows:
+                    cubes[y][x].make_barrier()
+            
+            # Make entry position red (occupied indicator)
+            if self.entry_position:
+                x, y = self.entry_position
+                if 0 <= x < cols and 0 <= y < rows:
+                    cubes[y][x].make_occupied()
+                    
+            # Add interior positions as barriers too
+            self._make_interior_barriers(cubes)
+            
+        else:
+            # Restore original layout - barriers stay, but entry becomes available again
+            for x, y in self.barrier_positions:
+                if 0 <= x < cols and 0 <= y < rows:
+                    cubes[y][x].make_barrier()
+            
+            # Make entry position available (target color)
+            if self.entry_position:
+                x, y = self.entry_position
+                if 0 <= x < cols and 0 <= y < rows:
+                    cubes[y][x].make_end()
+                    
+            # Clear interior barriers
+            self._clear_interior_barriers(cubes)
+
+    def _make_interior_barriers(self, cubes):
+        """Make all interior positions of the parking space into barriers when occupied"""
+        rows, cols = len(cubes), len(cubes[0])
+        
+        if self.orientation == 'horizontal':
+            # Fill the middle area (where cars would park) with barriers
+            for i in range(self.height):
+                for j in range(self.width):
+                    x, y = self.grid_x + j, self.grid_y + i
+                    if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
+                        if 0 <= x < cols and 0 <= y < rows:
+                            cubes[y][x].make_barrier()
+                            
+        elif self.orientation == 'vertical':
+            # Fill the middle area (where cars would park) with barriers
+            for i in range(self.height):
+                for j in range(self.width):
+                    x, y = self.grid_x + j, self.grid_y + i
+                    if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
+                        if 0 <= x < cols and 0 <= y < rows:
+                            cubes[y][x].make_barrier()
+
+    def _clear_interior_barriers(self, cubes):
+        """Clear interior barriers when parking space becomes available"""
+        rows, cols = len(cubes), len(cubes[0])
+        
+        if self.orientation == 'horizontal':
+            # Clear the middle area 
+            for i in range(self.height):
+                for j in range(self.width):
+                    x, y = self.grid_x + j, self.grid_y + i
+                    if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
+                        if 0 <= x < cols and 0 <= y < rows:
+                            cubes[y][x].make_clear()
+                            
+        elif self.orientation == 'vertical':
+            # Clear the middle area
+            for i in range(self.height):
+                for j in range(self.width):
+                    x, y = self.grid_x + j, self.grid_y + i
+                    if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
+                        if 0 <= x < cols and 0 <= y < rows:
+                            cubes[y][x].make_clear()
 
     def is_car_in_space(self, car):
         """Check if a car is properly parked in this space"""

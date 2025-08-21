@@ -72,6 +72,10 @@ class Cube:
     def make_path(self):
         self.change_type(6)
 
+    def make_occupied(self):
+        """Make this cube red to indicate an occupied parking space entry"""
+        self.change_type(4)  # Use type 4 (RED) for occupied parking entries
+
     def is_barrier(self):
         return self.type == 1
 

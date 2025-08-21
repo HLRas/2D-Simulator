@@ -75,11 +75,14 @@ class Map:
         # Generate 3 horizontal parking spaces on the right side, stacked vertically
         self.parking_spaces = []
         space_height = 5
-        num_spaces = 3
+        num_spaces = 5
         
         for i in range(num_spaces):
             y_position = i * space_height  # Stack them vertically with no gap
-            space = ParkingSpace(self.cols - 7, y_position, 7, space_height, 'horizontal')
+            if i == 2:
+                space = ParkingSpace(self.cols - 7, y_position, 7, space_height, 'horizontal', occupied=True, permanently_occupied=True)
+            else:
+                space = ParkingSpace(self.cols - 7, y_position, 7, space_height, 'horizontal')
             self.parking_spaces.append(space)
 
         # Apply to grid
@@ -109,6 +112,10 @@ class Map:
                 for y in range(obs_y, min(obs_y + obs_height, self.rows)):
                     if 0 <= x < self.cols and 0 <= y < self.rows:
                         self.cubes[y][x].make_barrier()
+
+        # Create parking space
+        self.add_parking_space(30, 10, 7, 5, 'horizontal')
+
     def add_parking_space(self, grid_x, grid_y, width=7, height=5, orientation='horizontal'):
         """Add a new parking space"""
         space = ParkingSpace(grid_x, grid_y, width, height, orientation)
@@ -217,8 +224,12 @@ class Map:
         nearest_space = None
         min_distance = float('inf')
         
-        for space in self.parking_spaces:
+        available_count = 0
+        occupied_count = 0
+        
+        for i, space in enumerate(self.parking_spaces):
             if not space.occupied:
+                available_count += 1
                 target_pos = space.get_target_position()
                 if target_pos:
                     distance = ((car_pos[0] - target_pos[0]) ** 2 + 
@@ -226,6 +237,8 @@ class Map:
                     if distance < min_distance:
                         min_distance = distance
                         nearest_space = space
+            else:
+                occupied_count += 1
         
         return nearest_space
 
