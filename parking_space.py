@@ -60,7 +60,7 @@ class ParkingSpace:
         # Add barriers
         for x, y in self.barrier_positions:
             if 0 <= x < cols and 0 <= y < rows:
-                cubes[y][x].make_barrier()
+                cubes[y][x].make_barrier(cubes)
         
         # Set target position
         if self.entry_position:
@@ -88,7 +88,7 @@ class ParkingSpace:
             # Make all positions barriers except entry
             for x, y in self.barrier_positions:
                 if 0 <= x < cols and 0 <= y < rows:
-                    cubes[y][x].make_barrier()
+                    cubes[y][x].make_barrier(cubes)
             
             # Make entry position red (occupied indicator)
             if self.entry_position:
@@ -103,7 +103,7 @@ class ParkingSpace:
             # Restore original layout - barriers stay, but entry becomes available again
             for x, y in self.barrier_positions:
                 if 0 <= x < cols and 0 <= y < rows:
-                    cubes[y][x].make_barrier()
+                    cubes[y][x].make_barrier(cubes)
             
             # Make entry position available (target color)
             if self.entry_position:
@@ -125,7 +125,7 @@ class ParkingSpace:
                     x, y = self.grid_x + j, self.grid_y + i
                     if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
                         if 0 <= x < cols and 0 <= y < rows:
-                            cubes[y][x].make_barrier()
+                            cubes[y][x].make_barrier(cubes)
                             
         elif self.orientation == 'vertical':
             # Fill the middle area (where cars would park) with barriers
@@ -134,29 +134,31 @@ class ParkingSpace:
                     x, y = self.grid_x + j, self.grid_y + i
                     if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
                         if 0 <= x < cols and 0 <= y < rows:
-                            cubes[y][x].make_barrier()
+                            cubes[y][x].make_barrier(cubes)
 
     def _clear_interior_barriers(self, cubes):
-        """Clear interior barriers when parking space becomes available"""
+        """Regenerate original parking space layout when becoming unoccupied"""
         rows, cols = len(cubes), len(cubes[0])
         
-        if self.orientation == 'horizontal':
-            # Clear the middle area 
-            for i in range(self.height):
-                for j in range(self.width):
-                    x, y = self.grid_x + j, self.grid_y + i
-                    if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
-                        if 0 <= x < cols and 0 <= y < rows:
-                            cubes[y][x].make_clear()
-                            
-        elif self.orientation == 'vertical':
-            # Clear the middle area
-            for i in range(self.height):
-                for j in range(self.width):
-                    x, y = self.grid_x + j, self.grid_y + i
-                    if (x, y) != self.entry_position and (x, y) not in self.barrier_positions:
-                        if 0 <= x < cols and 0 <= y < rows:
-                            cubes[y][x].make_clear()
+        # First, clear the entire parking space area
+        for i in range(self.height):
+            for j in range(-1, self.width): # also clear the soft barriers at the entrance
+                x, y = self.grid_x + j, self.grid_y + i
+                if 0 <= x < cols and 0 <= y < rows:
+                    cubes[y][x].make_clear()
+        
+        # Regenerate the original parking space layout
+        # Add the original barriers
+        for x, y in self.barrier_positions:
+            if 0 <= x < cols and 0 <= y < rows:
+                cubes[y][x].make_barrier(cubes)
+        
+        # Set the entry position as available (target)
+        if self.entry_position:
+            x, y = self.entry_position
+            if 0 <= x < cols and 0 <= y < rows:
+                cubes[y][x].make_end()
+                self.target_cube = cubes[y][x]
 
     def is_car_in_space(self, car):
         """Check if a car is properly parked in this space"""

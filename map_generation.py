@@ -111,7 +111,7 @@ class Map:
             for x in range(obs_x, min(obs_x + obs_width, self.cols)):
                 for y in range(obs_y, min(obs_y + obs_height, self.rows)):
                     if 0 <= x < self.cols and 0 <= y < self.rows:
-                        self.cubes[y][x].make_barrier()
+                        self.cubes[y][x].make_barrier(self.cubes)
 
         # Create parking space
         self.add_parking_space(30, 10, 7, 5, 'horizontal')
