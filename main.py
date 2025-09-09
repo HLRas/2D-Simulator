@@ -29,7 +29,7 @@ def tcp_receiver_thread():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.connect((socket.gethostname(), 1234))
-        '''while True:
+        while True:
             msg = s.recv(32)
             if not msg:
                 break
@@ -45,7 +45,6 @@ def tcp_receiver_thread():
             
             except Exception as e:
                 print(f"[Receiver] Error parsing message: {msg} ({e})")
-        '''
     except Exception as e:
         print(f"[Receiver] Socket error: {e}")
     finally:
@@ -126,7 +125,7 @@ def run_simulation(layout_type):
     while True:
         dt = clock.tick(FPS) / 1000.0  # Delta time in seconds
         frame_count += 1
-
+        print(f"LOOK AT MY COORDS!! {received_coords}")
         # --- Check for new coordinates every 3 seconds (headless mode only) ---
         if HEADLESS_MODE:
             now = time.time()
