@@ -29,19 +29,23 @@ def tcp_receiver_thread():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.connect((socket.gethostname(), 1234))
-        while True:
+        '''while True:
             msg = s.recv(32)
             if not msg:
                 break
             try:
                 decoded = msg.decode("utf-8").strip()
                 if "," in decoded:
-                    x_str, y_str = decoded.split(",")
-                    x, y = float(x_str), float(y_str)
+                    parts = decoded.split(",")
+                    
+                    x_str, y_str, orientation_str = parts[0], parts[1], parts[2]
+                    x, y, orientation = float(x_str), float(y_str), float(orientation_str)
                     with coord_lock:
-                        received_coords = (x, y)
+                        received_coords = (x, y, orientation)
+            
             except Exception as e:
                 print(f"[Receiver] Error parsing message: {msg} ({e})")
+        '''
     except Exception as e:
         print(f"[Receiver] Socket error: {e}")
     finally:
@@ -130,10 +134,17 @@ def run_simulation(layout_type):
                 with coord_lock:
                     coords = received_coords
                 if coords and coords != last_handled_coords:
-                    x, y = coords
-                    print(f"[Receiver] Updating car position to ({x:.1f}, {y:.1f}) at frame {frame_count}")
-                    car.x, car.y = x, y
-                    car.angle = 0  # Optionally reset angle
+                    if len(coords) >= 3:
+                        x, y, orientation = coords
+                        print(f"[Receiver] Updating car position to ({x:.1f}, {y:.1f}) with orientation {orientation:.1f}° at frame {frame_count}")
+                        car.x, car.y = x, y
+                        car.angle = math.radians(orientation)  # Convert degrees to radians
+                    else:
+                        x, y = coords[0], coords[1]
+                        print(f"[Receiver] Updating car position to ({x:.1f}, {y:.1f}) at frame {frame_count}")
+                        car.x, car.y = x, y
+                        car.angle = 0  # Default angle
+                    
                     last_handled_coords = coords
                     last_update_time = now
                     # Rerun auto pathfinding immediately after position update

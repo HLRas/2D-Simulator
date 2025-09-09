@@ -235,6 +235,17 @@ class Car:
         self.cross_track_index = 0
         print("Stopped path following")
     
+    def set_position(self, pos: tuple):
+        """Set position of car"""
+        self.x = pos[0]
+        self.y = pos[1]
+        return
+    
+    def set_orientation(self, orient: float):
+        """Set orientation of car"""
+        self.angle = orient
+        return
+
     def _find_carrot_point(self):
         """Find the carrot point ahead on the path"""
         if not self.path_points or self.current_target_index >= len(self.path_points):
