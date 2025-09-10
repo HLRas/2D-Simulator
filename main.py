@@ -118,9 +118,9 @@ def run_simulation(layout_type):
         receiver_thread = threading.Thread(target=tcp_receiver_thread, daemon=True)
         receiver_thread.start()
 
-    if HEADLESS_MODE and AUTO_PATHFINDING:
+    if HEADLESS_MODE:
         print("Starting headless simulation...")
-        print("Will automatically set start position and begin pathfinding...")
+        print("Waiting for TCP coordinate before starting pathfinding...")
     elif AUTO_PATHFINDING:
         print("Will automatically set start position and begin pathfinding...")
 
@@ -170,8 +170,8 @@ def run_simulation(layout_type):
                     else:
                         print(f"[Receiver] Pathfinding failed!")
 
-        # Handle automated pathfinding (if enabled and not triggered by receiver)
-        if AUTO_PATHFINDING and not (HEADLESS_MODE and coordinate_processed):
+        # Handle automated pathfinding (DISABLED in headless mode - only TCP coordinates trigger pathfinding)
+        if AUTO_PATHFINDING and not HEADLESS_MODE:
             auto_pathfinding_started = handle_automated_pathfinding(frame_count, game_map, car)
 
         # Print periodic status updates in headless mode
