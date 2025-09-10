@@ -125,61 +125,53 @@ def run_simulation(layout_type):
         print("Will automatically set start position and begin pathfinding...")
 
     # For coordinate update timing
-    last_update_time = time.time()
-    last_handled_coords = None
+    coordinate_processed = False
 
     # Main game loop
     while True:
         dt = clock.tick(FPS) / 1000.0  # Delta time in seconds
         frame_count += 1
         
-        # --- Check for new coordinates every 3 seconds (headless mode only) ---
-        if HEADLESS_MODE:
-            now = time.time()
-            if now - last_update_time >= 3.0:
-                with coord_lock:
-                    coords = received_coords
-                if coords and coords != last_handled_coords:
-                    if len(coords) >= 3:
-                        x, y, orientation = coords
-                        print(f"[Receiver] Updating car position to ({x:.1f}, {y:.1f}) with orientation {orientation:.1f}° at frame {frame_count}")
-                        car.x, car.y = x, y
-                        car.angle = math.radians(orientation)  # Convert degrees to radians
+        # --- Check for received coordinates (headless mode only) ---
+        if HEADLESS_MODE and not coordinate_processed:
+            with coord_lock:
+                coords = received_coords
+            if coords:
+                x, y, orientation = coords
+                print(f"[Receiver] Setting car position to ({x:.1f}, {y:.1f}) with orientation {math.degrees(orientation):.1f}° at frame {frame_count}")
+                car.set_position((x,y))
+                car.set_orientation(orientation)
+                
+                coordinate_processed = True
+                
+                # Execute pathfinding once after receiving coordinate
+                # Set start position
+                car_center = car.get_rect().center
+                cube = game_map.get_cube(car_center)
+                if cube:
+                    if game_map.start:
+                        game_map.start.make_clear()
+                        game_map.mark_dirty(game_map.start)
+                    cube.make_start()
+                    game_map.start = cube
+                    game_map.mark_dirty(cube)
+                    print(f"[Receiver] Auto-set start position at ({car.x:.1f}, {car.y:.1f})")
+                
+                # Find nearest parking space and pathfind
+                nearest_space = game_map._find_nearest_parking_space(car)
+                if nearest_space and nearest_space.target_cube:
+                    game_map.end = nearest_space.target_cube
+                    game_map._update_neighbors_if_needed()
+                    game_map.pathfinder.clear_path(game_map.cubes, game_map.mark_dirty)
+                    path_found = game_map.pathfinder.pathfind(game_map.cubes, game_map.start, game_map.end, game_map.mark_dirty)
+                    if path_found:
+                        car.start_path_following(game_map.pathfinder.path_points)
+                        print(f"[Receiver] Auto-started carrot pathfinding to parking space")
                     else:
-                        x, y = coords[0], coords[1]
-                        print(f"[Receiver] Updating car position to ({x:.1f}, {y:.1f}) at frame {frame_count}")
-                        car.x, car.y = x, y
-                        car.angle = 0  # Default angle
-                    
-                    last_handled_coords = coords
-                    last_update_time = now
-                    # Rerun auto pathfinding immediately after position update
-                    # Set start position
-                    car_center = car.get_rect().center
-                    cube = game_map.get_cube(car_center)
-                    if cube:
-                        if game_map.start:
-                            game_map.start.make_clear()
-                            game_map.mark_dirty(game_map.start)
-                        cube.make_start()
-                        game_map.start = cube
-                        game_map.mark_dirty(cube)
-                        print(f"[Receiver] Auto-set start position at ({car.x:.1f}, {car.y:.1f})")
-                    # Find nearest parking space and pathfind
-                    nearest_space = game_map._find_nearest_parking_space(car)
-                    if nearest_space and nearest_space.target_cube:
-                        game_map.end = nearest_space.target_cube
-                        game_map._update_neighbors_if_needed()
-                        game_map.pathfinder.clear_path(game_map.cubes, game_map.mark_dirty)
-                        path_found = game_map.pathfinder.pathfind(game_map.cubes, game_map.start, game_map.end, game_map.mark_dirty)
-                        if path_found:
-                            car.start_path_following(game_map.pathfinder.path_points)
-                            print(f"[Receiver] Auto-started carrot pathfinding to parking space")
-                        else:
-                            print(f"[Receiver] Pathfinding failed!")
+                        print(f"[Receiver] Pathfinding failed!")
 
         # Handle automated pathfinding (if enabled and not triggered by receiver)
-        if AUTO_PATHFINDING and not (HEADLESS_MODE and last_handled_coords):
+        if AUTO_PATHFINDING and not (HEADLESS_MODE and coordinate_processed):
             auto_pathfinding_started = handle_automated_pathfinding(frame_count, game_map, car)
 
         # Print periodic status updates in headless mode
