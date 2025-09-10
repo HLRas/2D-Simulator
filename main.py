@@ -33,7 +33,7 @@ def tcp_receiver_thread():
         time.sleep(5)  # Wait 5 seconds AFTER connecting
         print("[Receiver] Now receiving first coordinate...")
         
-        msg = s.recv(32)  # Receive exactly one message
+        msg = s.recv(21)  # Receive exactly one message limited to 21 characters
         if msg:
             try:
                 decoded = msg.decode("utf-8").strip()

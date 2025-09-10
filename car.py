@@ -22,7 +22,7 @@ class Car:
         
         # Vehicle properties
         self.speed = 0.0
-        self.angle = 0.0
+        self.angle = 0.0 #radians
         self.width = CAR_WIDTH
         self.length = CAR_LENGTH
         self.wheelrad = WHEEL_RADIUS
