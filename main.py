@@ -6,7 +6,6 @@ import socket
 import threading
 import time
 import serial
-import serial.tools.list_ports
 from car import Car
 from map_generation import Map
 # from menu import MainMenu  # Commented out for headless mode
@@ -50,6 +49,15 @@ def arduino_thread():
     
     while True:
         try:
+            # Check for incoming serial data from Arduino
+            if arduino_serial.in_waiting > 0:
+                try:
+                    incoming_data = arduino_serial.readline().decode('utf-8').strip()
+                    if incoming_data:
+                        print(f"[Arduino] Received: {incoming_data}")
+                except Exception as read_error:
+                    print(f"[Arduino] Read error: {read_error}")
+            
             # Check for new wheel speeds to send
             with arduino_lock:
                 if wheel_speed_queue:
@@ -64,12 +72,12 @@ def arduino_thread():
                 continue
                 
             # Send wheel speeds
-            data = f"L:{left_speed:.2f},R:{right_speed:.2f}\n"
+            data = f"{left_speed:.3f},{right_speed:.3f}\n"
             arduino_serial.write(data.encode('utf-8'))
             arduino_serial.flush()
             
             last_sent_speeds = current_speeds
-            print(f"[Arduino] Sent: L={left_speed:.2f}, R={right_speed:.2f}")
+            print(f"[Arduino] Sent: L={left_speed:.3f}, R={right_speed:.3f}")
             
         except Exception as e:
             print(f"[Arduino] Communication error: {e}")
