@@ -5,6 +5,8 @@ import os
 import socket
 import threading
 import time
+import serial
+import serial.tools.list_ports
 from car import Car
 from map_generation import Map
 # from menu import MainMenu  # Commented out for headless mode
@@ -23,6 +25,82 @@ if HEADLESS_MODE:
 received_coords = None
 last_coord_time = 0
 coord_lock = threading.Lock()
+
+# --- Arduino Serial Communication for Wheel Speeds ---
+arduino_serial = None
+wheel_speed_queue = []
+arduino_lock = threading.Lock()
+
+def arduino_thread():
+    """Dedicated thread for Arduino communication"""
+    global arduino_serial, wheel_speed_queue
+    
+    # Initialize Arduino connection
+    try:
+        # Try common Arduino ports
+        possible_ports = ['COM3', 'COM4', 'COM5', '/dev/ttyACM0', '/dev/ttyUSB0']
+        
+        # Auto-detect Arduino ports
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            if 'Arduino' in port.description or 'ACM' in port.device:
+                possible_ports.insert(0, port.device)
+        
+        for port in possible_ports:
+            try:
+                arduino_serial = serial.Serial(port, 9600, timeout=1)
+                time.sleep(2)  # Wait for Arduino reset
+                print(f"[Arduino] Connected to {port}")
+                break
+            except:
+                continue
+        else:
+            print("[Arduino] No Arduino found")
+            return
+            
+    except Exception as e:
+        print(f"[Arduino] Connection error: {e}")
+        return
+    
+    # Main Arduino communication loop
+    last_sent_speeds = None
+    
+    while True:
+        try:
+            # Check for new wheel speeds to send
+            with arduino_lock:
+                if wheel_speed_queue:
+                    left_speed, right_speed = wheel_speed_queue.pop(0)  # Get oldest (FIFO)
+                else:
+                    time.sleep(0.01)  # Short sleep if no data
+                    continue
+            
+            # Only send if speeds changed significantly (avoid spam)
+            current_speeds = (round(left_speed, 2), round(right_speed, 2))
+            if last_sent_speeds == current_speeds:
+                continue
+                
+            # Send wheel speeds
+            data = f"L:{left_speed:.2f},R:{right_speed:.2f}\n"
+            arduino_serial.write(data.encode('utf-8'))
+            arduino_serial.flush()
+            
+            last_sent_speeds = current_speeds
+            print(f"[Arduino] Sent: L={left_speed:.2f}, R={right_speed:.2f}")
+            
+        except Exception as e:
+            print(f"[Arduino] Communication error: {e}")
+            break
+    
+    # Cleanup
+    if arduino_serial:
+        arduino_serial.close()
+        print("[Arduino] Connection closed")
+
+def queue_wheel_speeds(left_speed, right_speed):
+    """Queue wheel speeds for sending to Arduino"""
+    with arduino_lock:
+        wheel_speed_queue.append((left_speed, right_speed))
 
 def tcp_receiver_thread():
     global received_coords
@@ -117,6 +195,10 @@ def run_simulation(layout_type):
     if HEADLESS_MODE:
         receiver_thread = threading.Thread(target=tcp_receiver_thread, daemon=True)
         receiver_thread.start()
+        
+        # Start Arduino communication thread
+        arduino_comm_thread = threading.Thread(target=arduino_thread, daemon=True)
+        arduino_comm_thread.start()
 
     if HEADLESS_MODE:
         print("Starting headless simulation...")
@@ -220,6 +302,10 @@ def run_simulation(layout_type):
         # Update car physics with collision detection
         obstacles = game_map.get_obstacles()
         car.find_next_pos(dt, obstacles)
+        
+        # Send wheel speeds to Arduino when they change (headless mode only)
+        if HEADLESS_MODE:
+            queue_wheel_speeds(car.wheel_L, car.wheel_R)
 
         # Check parking status
         for space in game_map.parking_spaces:
