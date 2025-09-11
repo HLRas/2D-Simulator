@@ -35,28 +35,11 @@ def arduino_thread():
     """Dedicated thread for Arduino communication"""
     global arduino_serial, wheel_speed_queue
     
-    # Initialize Arduino connection
+    # Initialize Arduino connection to specific port
     try:
-        # Try common Arduino ports
-        possible_ports = ['COM3', 'COM4', 'COM5', '/dev/ttyACM0', '/dev/ttyUSB0']
-        
-        # Auto-detect Arduino ports
-        ports = serial.tools.list_ports.comports()
-        for port in ports:
-            if 'Arduino' in port.description or 'ACM' in port.device:
-                possible_ports.insert(0, port.device)
-        
-        for port in possible_ports:
-            try:
-                arduino_serial = serial.Serial(port, 9600, timeout=1)
-                time.sleep(2)  # Wait for Arduino reset
-                print(f"[Arduino] Connected to {port}")
-                break
-            except:
-                continue
-        else:
-            print("[Arduino] No Arduino found")
-            return
+        arduino_serial = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        time.sleep(2)  # Wait for Arduino reset
+        print("[Arduino] Connected to /dev/ttyACM0")
             
     except Exception as e:
         print(f"[Arduino] Connection error: {e}")
