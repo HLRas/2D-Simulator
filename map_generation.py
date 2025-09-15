@@ -72,7 +72,7 @@ class Map:
 
     def _create_default_parking_spaces(self):
         """Create default layout with parking spaces (Layout 0)"""
-        # Generate 3 horizontal parking spaces on the right side, stacked vertically
+        # Generate 5 horizontal parking spaces on the right side, stacked vertically
         self.parking_spaces = []
         space_height = 5
         num_spaces = 5
