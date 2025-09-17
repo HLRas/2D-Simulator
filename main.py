@@ -315,6 +315,12 @@ def run_simulation(layout_type):
                     space.set_occupied(True, game_map.cubes)
                     print(f"SUCCESS! Car parked in space at frame {frame_count}!")
                     print(f"Final car position: ({car.x:.1f}, {car.y:.1f})")
+                    
+                    # Send zero speeds to Arduino to stop the car
+                    if HEADLESS_MODE:
+                        queue_wheel_speeds(0.0, 0.0)
+                        print("[Arduino] Sent stop command: L=0.000, R=0.000")
+                    
                     print("Headless simulation completed successfully!")
                     pygame.quit()
                     return
