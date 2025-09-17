@@ -13,8 +13,8 @@ from config import *
 
 # Configuration for headless/automated mode
 # Configuration flags for headless and automated modes
-HEADLESS_MODE = True  # Set to True to run without GUI (using SDL dummy driver)
-AUTO_PATHFINDING = True  # Set to True to automatically start pathfinding after positioning
+HEADLESS_MODE = False  # Set to True to run without GUI (using SDL dummy driver)
+AUTO_PATHFINDING = False  # Set to True to automatically start pathfinding after positioning
 
 # Set SDL to use dummy video driver for headless operation (only if headless mode is enabled)
 if HEADLESS_MODE:
