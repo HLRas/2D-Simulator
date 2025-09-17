@@ -17,8 +17,10 @@ class Car:
         self.max_angular_wheelspeed = MAX_WHEEL_SPEED
         
         # Wheel speeds
-        self.wheel_L = 0.0
-        self.wheel_R = 0.0
+        self.wheel_L = 0.0 # angular
+        self.wheel_R = 0.0 # angular
+        self.wheel_L_speed = 0.0
+        self.wheel_R_speed = 0.0
         
         # Vehicle properties
         self.speed = 0.0
@@ -149,8 +151,11 @@ class Car:
         self.apply_friction(dt)
         
         # Calculate movement
-        self.speed = (self.wheel_L + self.wheel_R) * self.wheelrad / 2
-        self.angle += (self.wheel_R - self.wheel_L) * self.wheelrad / self.width * dt * TURN_RATE
+        self.wheel_L_speed = self.wheel_L * self.wheelrad
+        self.wheel_R_speed = self.wheel_R * self.wheelrad
+        print(f"Left: {self.wheel_L_speed} | Right: {self.wheel_R_speed}")
+        self.speed = (self.wheel_R_speed + self.wheel_L_speed) / 2
+        self.angle += (self.wheel_R_speed - self.wheel_L_speed) / self.width * dt * TURN_RATE
         
         # Calculate new position
         new_x = self.x + self.speed * math.cos(self.angle) * dt * self.wheelrad
@@ -550,7 +555,7 @@ class Car:
         total_turn_command = max(-max_turn_rate, min(max_turn_rate, total_turn_command))
         
         # Speed control (similar to carrot method but slightly slower for precision)
-        base_speed = 0.4
+        base_speed = 1.7 # tuned to liking
         turn_penalty = abs(total_turn_command) * 0.08
         target_speed = max(0.15, base_speed - turn_penalty)
         
@@ -559,3 +564,6 @@ class Car:
         right_command = target_speed + total_turn_command * 0.4
         
         return left_command, right_command
+    
+    def get_speeds(self):
+        return [self.wheel_L_speed * WHEEL_RADIUS * 2 /1000, self.wheel_R_speed *WHEEL_RADIUS * 2 /1000] # horrible but it works

@@ -13,8 +13,8 @@ from config import *
 
 # Configuration for headless/automated mode
 # Configuration flags for headless and automated modes
-HEADLESS_MODE = False  # Set to True to run without GUI (using SDL dummy driver)
-AUTO_PATHFINDING = False  # Set to True to automatically start pathfinding after positioning
+HEADLESS_MODE = True  # Set to True to run without GUI (using SDL dummy driver)
+AUTO_PATHFINDING = True  # Set to True to automatically start pathfinding after positioning
 
 # Set SDL to use dummy video driver for headless operation (only if headless mode is enabled)
 if HEADLESS_MODE:
@@ -296,7 +296,8 @@ def run_simulation(layout_type):
         
         # Send wheel speeds to Arduino when they change (headless mode only)
         if HEADLESS_MODE:
-            queue_wheel_speeds(car.wheel_L, car.wheel_R)
+            speeds = car.get_speeds()
+            queue_wheel_speeds(speeds[0], speeds[1])
 
         # Check parking status
         for space in game_map.parking_spaces:
