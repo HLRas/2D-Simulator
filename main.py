@@ -16,6 +16,7 @@ from config import *
 HEADLESS_MODE = True  # Set to True to run without GUI (using SDL dummy driver)
 AUTO_PATHFINDING = True  # Set to True to automatically start pathfinding after positioning
 PATHFINDING_METHOD = "cross_track"  # Options: "carrot" or "cross_track"
+ENABLE_ARDUINO = True  # Set to False to disable Arduino communication for testing
 
 # Set SDL to use dummy video driver for headless operation (only if headless mode is enabled)
 if HEADLESS_MODE:
@@ -37,52 +38,83 @@ def arduino_thread():
     
     # Initialize Arduino connection to specific port
     try:
-        arduino_serial = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        arduino_serial = serial.Serial('/dev/ttyACM0', 9600, timeout=0.1)  # Reduced timeout
         time.sleep(2)  # Wait for Arduino reset
         print("[Arduino] Connected to /dev/ttyACM0")
             
     except Exception as e:
         print(f"[Arduino] Connection error: {e}")
-        return
+        print("[Arduino] Running in simulation-only mode (no Arduino)")
+        # Continue running without Arduino - don't return
+        arduino_serial = None
     
-    # Main Arduino communication loop
-    last_sent_speeds = None
+    # Main Arduino communication loop - send every 10ms
+    last_sent_speeds = (0.0, 0.0)
+    last_send_time = time.time()
+    send_interval = 0.01  # 10ms = 0.01 seconds
+    loop_count = 0
     
     while True:
         try:
-            # Check for incoming serial data from Arduino
-            if arduino_serial.in_waiting > 0:
-                try:
-                    incoming_data = arduino_serial.readline().decode('utf-8').strip()
-                    if incoming_data:
-                        print(f"[Arduino] Received: {incoming_data}")
-                except Exception as read_error:
-                    print(f"[Arduino] Read error: {read_error}")
+            loop_count += 1
+            current_time = time.time()
             
-            # Check for new wheel speeds to send
-            with arduino_lock:
-                if wheel_speed_queue:
-                    left_speed, right_speed = wheel_speed_queue.pop(0)  # Get oldest (FIFO)
-                else:
-                    time.sleep(0.01)  # Short sleep if no data
-                    continue
+            # Debug: Print every 1000 loops to see if thread is running
+            if loop_count % 1000 == 0:
+                print(f"[Arduino] Thread running, loop {loop_count}")
             
-            # Only send if speeds changed significantly (avoid spam)
-            current_speeds = (round(left_speed, 2), round(right_speed, 2))
-            if last_sent_speeds == current_speeds:
-                continue
+            # Only try serial communication if Arduino is connected
+            if arduino_serial:
+                # Check for incoming serial data from Arduino (non-blocking)
+                if arduino_serial.in_waiting > 0:
+                    try:
+                        incoming_data = arduino_serial.readline().decode('utf-8').strip()
+                        if incoming_data:
+                            print(f"[Arduino] Received: {incoming_data}")
+                    except Exception as read_error:
+                        print(f"[Arduino] Read error: {read_error}")
+            
+            # Check if it's time to send (every 10ms)
+            if current_time - last_send_time >= send_interval:
+                # Get latest wheel speeds
+                left_speed = last_sent_speeds[0]  # Default to last sent
+                right_speed = last_sent_speeds[1]
                 
-            # Send wheel speeds
-            data = f"{left_speed:.3f},{right_speed:.3f}\n"
-            arduino_serial.write(data.encode('utf-8'))
-            arduino_serial.flush()
+                # Check for new wheel speeds (get the most recent)
+                with arduino_lock:
+                    if wheel_speed_queue:
+                        # Get most recent speed (clear all old ones)
+                        while wheel_speed_queue:
+                            left_speed, right_speed = wheel_speed_queue.pop(0)
+                
+                # Send wheel speeds every 10ms regardless of change
+                if arduino_serial:
+                    try:
+                        data = f"{left_speed:.3f},{right_speed:.3f}\n"
+                        arduino_serial.write(data.encode('utf-8'))
+                        arduino_serial.flush()
+                        last_sent_speeds = (left_speed, right_speed)
+                        last_send_time = current_time
+                        
+                        # Less frequent logging to avoid spam
+                        if loop_count % 100 == 0:
+                            print(f"[Arduino] Sent: L={left_speed:.3f}, R={right_speed:.3f}")
+                    except Exception as write_error:
+                        print(f"[Arduino] Write error: {write_error}")
+                else:
+                    # Simulate sending (for debugging)
+                    last_sent_speeds = (left_speed, right_speed)
+                    last_send_time = current_time
+                    if loop_count % 1000 == 0:  # Much less frequent logging
+                        print(f"[Arduino] Simulated send: L={left_speed:.3f}, R={right_speed:.3f}")
             
-            last_sent_speeds = current_speeds
-            print(f"[Arduino] Sent: L={left_speed:.3f}, R={right_speed:.3f}")
+            # Short sleep to prevent excessive CPU usage
+            time.sleep(0.001)  # 1ms sleep
             
         except Exception as e:
             print(f"[Arduino] Communication error: {e}")
-            break
+            time.sleep(0.01)  # Brief pause before retry
+            continue
     
     # Cleanup
     if arduino_serial:
@@ -192,9 +224,12 @@ def run_simulation(layout_type):
         receiver_thread = threading.Thread(target=tcp_receiver_thread, daemon=True)
         receiver_thread.start()
         
-        # Start Arduino communication thread
-        arduino_comm_thread = threading.Thread(target=arduino_thread, daemon=True)
-        arduino_comm_thread.start()
+        # Start Arduino communication thread only if enabled
+        if ENABLE_ARDUINO:
+            arduino_comm_thread = threading.Thread(target=arduino_thread, daemon=True)
+            arduino_comm_thread.start()
+        else:
+            print("[Arduino] Communication disabled - running simulation only")
 
     if HEADLESS_MODE:
         print("Starting headless simulation...")
@@ -252,8 +287,12 @@ def run_simulation(layout_type):
                     else:
                         print(f"[Receiver] Pathfinding failed!")
 
-        # Handle automated pathfinding (DISABLED in headless mode - only TCP coordinates trigger pathfinding)
+        # Handle automated pathfinding 
         if AUTO_PATHFINDING and not HEADLESS_MODE:
+            # Normal auto-pathfinding for GUI mode
+            auto_pathfinding_started = handle_automated_pathfinding(frame_count, game_map, car)
+        elif AUTO_PATHFINDING and HEADLESS_MODE and not coordinate_processed:
+            # Auto-pathfinding for headless mode (without TCP coordinates)
             auto_pathfinding_started = handle_automated_pathfinding(frame_count, game_map, car)
 
         # Print periodic status updates in headless mode
@@ -304,7 +343,7 @@ def run_simulation(layout_type):
         car.find_next_pos(dt, obstacles)
         
         # Send wheel speeds to Arduino when they change (headless mode only)
-        if HEADLESS_MODE:
+        if HEADLESS_MODE and ENABLE_ARDUINO:
             speeds = car.get_speeds()
             queue_wheel_speeds(speeds[0], speeds[1])
 
@@ -317,7 +356,7 @@ def run_simulation(layout_type):
                     print(f"Final car position: ({car.x:.1f}, {car.y:.1f})")
                     
                     # Send zero speeds to Arduino to stop the car
-                    if HEADLESS_MODE:
+                    if HEADLESS_MODE and ENABLE_ARDUINO:
                         queue_wheel_speeds(0.0, 0.0)
                         print("[Arduino] Sent stop command: L=0.000, R=0.000")
                     
