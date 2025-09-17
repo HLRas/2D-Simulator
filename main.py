@@ -15,6 +15,7 @@ from config import *
 # Configuration flags for headless and automated modes
 HEADLESS_MODE = True  # Set to True to run without GUI (using SDL dummy driver)
 AUTO_PATHFINDING = True  # Set to True to automatically start pathfinding after positioning
+PATHFINDING_METHOD = "cross_track"  # Options: "carrot" or "cross_track"
 
 # Set SDL to use dummy video driver for headless operation (only if headless mode is enabled)
 if HEADLESS_MODE:
@@ -157,8 +158,12 @@ def handle_automated_pathfinding(frame_count, game_map, car):
                     path_found = game_map.pathfinder.pathfind(game_map.cubes, game_map.start, game_map.end, game_map.mark_dirty)
                     
                     if path_found:
-                        car.start_path_following(game_map.pathfinder.path_points)
-                        print(f"Frame {frame_count}: Auto-started carrot pathfinding to parking space")
+                        if PATHFINDING_METHOD == "cross_track":
+                            car.start_cross_track_following(game_map.pathfinder.path_points)
+                            print(f"Frame {frame_count}: Auto-started cross-track pathfinding to parking space")
+                        else:  # Default to carrot
+                            car.start_path_following(game_map.pathfinder.path_points)
+                            print(f"Frame {frame_count}: Auto-started carrot pathfinding to parking space")
                         handle_automated_pathfinding.started = True
                         auto_pathfinding_started = True
                     else:
@@ -238,8 +243,12 @@ def run_simulation(layout_type):
                     game_map.pathfinder.clear_path(game_map.cubes, game_map.mark_dirty)
                     path_found = game_map.pathfinder.pathfind(game_map.cubes, game_map.start, game_map.end, game_map.mark_dirty)
                     if path_found:
-                        car.start_path_following(game_map.pathfinder.path_points)
-                        print(f"[Receiver] Auto-started carrot pathfinding to parking space")
+                        if PATHFINDING_METHOD == "cross_track":
+                            car.start_cross_track_following(game_map.pathfinder.path_points)
+                            print(f"[Receiver] Auto-started cross-track pathfinding to parking space")
+                        else:  # Default to carrot
+                            car.start_path_following(game_map.pathfinder.path_points)
+                            print(f"[Receiver] Auto-started carrot pathfinding to parking space")
                     else:
                         print(f"[Receiver] Pathfinding failed!")
 
