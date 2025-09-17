@@ -260,6 +260,7 @@ def run_simulation(layout_type):
                 # Execute pathfinding once after receiving coordinate
                 # Set start position
                 car_center = car.get_rect().center
+                print(f"[DEBUG] Car center after position update: {car_center}")
                 cube = game_map.get_cube(car_center)
                 if cube:
                     if game_map.start:
@@ -271,8 +272,11 @@ def run_simulation(layout_type):
                     print(f"[Receiver] Auto-set start position at ({car.x:.1f}, {car.y:.1f})")
                 
                 # Find nearest parking space and pathfind
+                print(f"[DEBUG] Finding nearest parking space from car position: ({car.x:.1f}, {car.y:.1f})")
                 nearest_space = game_map._find_nearest_parking_space(car)
                 if nearest_space and nearest_space.target_cube:
+                    target_pos = nearest_space.get_target_position()
+                    print(f"[DEBUG] Selected parking space target position: {target_pos}")
                     game_map.end = nearest_space.target_cube
                     game_map._update_neighbors_if_needed()
                     game_map.pathfinder.clear_path(game_map.cubes, game_map.mark_dirty)
@@ -286,6 +290,8 @@ def run_simulation(layout_type):
                             print(f"[Receiver] Auto-started carrot pathfinding to parking space")
                     else:
                         print(f"[Receiver] Pathfinding failed!")
+                else:
+                    print("[DEBUG] No available parking space found!")
 
         # Handle automated pathfinding 
         if AUTO_PATHFINDING and not HEADLESS_MODE:

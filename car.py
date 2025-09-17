@@ -244,6 +244,10 @@ class Car:
         """Set position of car"""
         self.x = pos[0]
         self.y = pos[1]
+        # Update the car rectangle to reflect the new position
+        self.car_rect.center = (self.x, self.y)
+        # Update collision points as well
+        self._update_collision_points()
         return
     
     def set_orientation(self, orient: float):
